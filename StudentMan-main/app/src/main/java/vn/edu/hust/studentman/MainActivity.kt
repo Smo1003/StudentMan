@@ -1,20 +1,28 @@
 package vn.edu.hust.studentman
 
+import android.app.Activity
+import android.content.Intent
 import android.os.Bundle
-import android.view.LayoutInflater
-import android.widget.Button
-import android.widget.EditText
-import androidx.appcompat.app.AlertDialog
+import android.view.ContextMenu
+import android.view.Menu
+import android.view.MenuItem
+import android.view.View
+import android.widget.AdapterView
+import android.widget.ListView
 import androidx.appcompat.app.AppCompatActivity
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
+import vn.edu.hust.studentman.adapter.StudentAdapter
 
 class MainActivity : AppCompatActivity() {
+  private lateinit var lvStudents : ListView
+
+  private lateinit var students : MutableList<StudentModel>
+  private lateinit var adapter: StudentAdapter
+
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     setContentView(R.layout.activity_main)
 
-    val students = mutableListOf(
+    students = mutableListOf(
       StudentModel("Nguyễn Văn An", "SV001"),
       StudentModel("Trần Thị Bảo", "SV002"),
       StudentModel("Lê Hoàng Cường", "SV003"),
@@ -37,30 +45,81 @@ class MainActivity : AppCompatActivity() {
       StudentModel("Lê Văn Vũ", "SV020")
     )
 
-    val studentAdapter = StudentAdapter(students)
+    adapter = StudentAdapter(students)
 
-    findViewById<RecyclerView>(R.id.recycler_view_students).run {
-      adapter = studentAdapter
-      layoutManager = LinearLayoutManager(this@MainActivity)
+    lvStudents = findViewById(R.id.lv_students)
+    lvStudents.adapter = adapter
+
+    registerForContextMenu(lvStudents)
+  }
+
+  override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+    super.onActivityResult(requestCode, resultCode, data)
+
+    if (requestCode == AppConstant.ACT_ADD_STUDENT && resultCode == Activity.RESULT_OK) {
+      val newName = data?.getStringExtra("name")
+      val newId = data?.getStringExtra("id")
+
+      if (newName != null && newId != null) {
+        students.add(StudentModel(newName, newId))
+        adapter.notifyDataSetChanged()
+      }
+    } else if (requestCode == AppConstant.ACT_EDIT_STUDENT && resultCode == Activity.RESULT_OK) {
+      val newName = data?.getStringExtra("name")
+      val newId = data?.getStringExtra("id")
+      val pos = data?.getIntExtra("pos", -1)
+
+      if (newName != null && newId != null) {
+        students[pos!!] = StudentModel(newName, newId)
+        adapter.notifyDataSetChanged()
+      }
+    }
+  }
+
+  // Context menu
+  override fun onCreateContextMenu(menu: ContextMenu?, v: View?, menuInfo: ContextMenu.ContextMenuInfo?) {
+    super.onCreateContextMenu(menu, v, menuInfo)
+    menuInflater.inflate(R.menu.context_menus, menu)
+  }
+
+  override fun onContextItemSelected(item: MenuItem): Boolean {
+    val info = item.menuInfo as AdapterView.AdapterContextMenuInfo
+
+    val position = info.position
+    val student = students[position]
+
+    when (item.itemId) {
+      R.id.menu_edit -> {
+        val intent = Intent(this, AddActivity::class.java)
+        intent.putExtra("name", student.studentName)
+        intent.putExtra("id", student.studentId)
+        intent.putExtra("pos", position)
+
+        startActivityForResult(intent, AppConstant.ACT_EDIT_STUDENT)
+      }
+      R.id.menu_delete -> {
+        students.removeAt(position)
+        adapter.notifyDataSetChanged()
+      }
     }
 
-    val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_infor, null);
-    val etName = dialogView.findViewById<EditText>(R.id.et_name)
-    val etId = dialogView.findViewById<EditText>(R.id.et_id)
+    return super.onContextItemSelected(item)
+  }
 
-    val alertDialog = AlertDialog.Builder(this).apply {
-      setView(dialogView)
+  // Option menu
+  override fun onCreateOptionsMenu(menu: Menu?): Boolean {
+    menuInflater.inflate(R.menu.option_menus, menu)
+    return super.onCreateOptionsMenu(menu)
+  }
 
-      setPositiveButton("OK", { _, _ ->
-        students.add(StudentModel(etName.text.toString(), etId.text.toString()))
-      })
-
-      setNegativeButton("Hủy", {_, _ ->
-      })
-    }.create()
-
-    findViewById<Button>(R.id.btn_add_new).setOnClickListener {
-      alertDialog.show()
+  override fun onOptionsItemSelected(item: MenuItem): Boolean {
+    when (item.itemId) {
+      R.id.menu_add -> {
+        val intent = Intent(this, AddActivity::class.java)
+        startActivityForResult(intent, AppConstant.ACT_ADD_STUDENT)
+      }
     }
+
+    return super.onOptionsItemSelected(item)
   }
 }
